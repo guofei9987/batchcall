@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "batchcall"
+version = "0.1.0"
+description = "Resumable concurrent batch calls with adaptive concurrency and JSONL persistence"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+keywords = ["batch", "concurrency", "llm", "jsonl", "retry"]
+dependencies = []
+classifiers = ["Programming Language :: Python :: 3", "Operating System :: OS Independent"]
+
+[project.urls]
+Homepage = "https://github.com/guofei9987/batchcall"
+Issues = "https://github.com/guofei9987/batchcall/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
