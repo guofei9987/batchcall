@@ -6,7 +6,13 @@
 
 ## 安装与使用
 
-初始版本尚未发布到 PyPI，在项目目录运行 `python -m pip install .`。
+首个版本发布后，可通过 PyPI 安装：
+
+```bash
+python -m pip install batchcall
+```
+
+也可以在项目目录运行 `python -m pip install .`。
 
 ```python
 from batchcall import run, StorageConfig, RetryConfig, LogConfig
