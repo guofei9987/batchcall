@@ -76,9 +76,56 @@ class BatchCallTests(unittest.TestCase):
         records = list(iter_results(self.path))
         self.assertEqual([r['round'] for r in records], [0,0,0,1,1,2])
         self.assertEqual({r['id'] for r in records if r['round']==0}, {'a','b','c'})
-        self.assertEqual(next(r for r in records if r['id']=='a')['output']['elapsed'], 1.235)
+        self.assertEqual(next(r for r in records if r['id']=='a')['elapsed'], 1.235)
         s = self.execute({'a':'0', 'b':'1', 'c':'2'}, caller, retry_config=RetryConfig(0))
         self.assertEqual((s['skipped'], s['attempts'], s['failed']), (2,1,1))
+
+    def test_flat_record_schema(self):
+        def caller(payload):
+            if payload == 'limited':
+                return {'status': 'rate_limited', 'output': None, 'error': '429'}
+            if payload == 'exception':
+                raise RuntimeError('failure')
+            return {'status': 'success', 'output': payload, 'duration_s': 1.23456}
+
+        data = {'ok': '{"answer":"你好"}', 'limited': 'limited', 'exception': 'exception'}
+        s = self.execute(data, caller, retry_config=RetryConfig(0))
+        self.assertEqual((s['success'], s['failed'], s['rate_limited']), (1, 2, 1))
+        raw = [json.loads(line) for line in self.path.read_text(encoding='utf-8').splitlines()]
+        self.assertEqual(raw, list(iter_results(self.path)))
+        records = {r['id']: r for r in raw}
+        expected_keys = {'id', 'input', 'output', 'status', 'elapsed',
+                         'error_msg', 'caller_name', 'round'}
+        for record in raw:
+            self.assertEqual(set(record), expected_keys)
+            self.assertIsInstance(record['elapsed'], (float, int))
+            self.assertGreaterEqual(record['elapsed'], 0)
+        self.assertEqual(records['ok']['output'], data['ok'])
+        self.assertEqual(records['ok']['status'], 'success')
+        self.assertEqual(records['ok']['elapsed'], 1.235)
+        self.assertIsNone(records['ok']['error_msg'])
+        self.assertEqual(records['limited']['status'], 'rate_limited')
+        self.assertIsNone(records['limited']['output'])
+        self.assertEqual(records['limited']['error_msg'], '429')
+        self.assertEqual(records['exception']['status'], 'exception')
+        self.assertIsNone(records['exception']['output'])
+        self.assertEqual(records['exception']['error_msg'], 'RuntimeError: failure')
+        self.assertEqual(load_success_ids(self.path), {'ok'})
+
+    def test_legacy_nested_records_rejected(self):
+        old = {'id': 'a', 'input': '0',
+               'output': {'response': '0', 'status': 'success', 'elapsed': 0.1},
+               'error_msg': None, 'caller_name': 'caller_0', 'round': 0}
+        self.path.write_text(json.dumps(old) + '\n', encoding='utf-8')
+        before = self.path.read_bytes()
+        with self.assertRaises(ValueError):
+            list(iter_results(self.path))
+        with self.assertRaises(ValueError):
+            load_success_ids(self.path)
+        for resume in (True, False):
+            with self.assertRaises(ValueError):
+                self.execute({'a': '0'}, Caller(), storage_config=StorageConfig(self.path, resume=resume))
+            self.assertEqual(self.path.read_bytes(), before)
 
     def test_tail_repair(self):
         caller = Caller()

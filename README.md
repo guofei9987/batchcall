@@ -103,8 +103,12 @@ Logs include total and per-caller RPM, target concurrency, in-flight requests, p
 Each completed attempt is appended to JSONL, including failures and retries. A record has this shape:
 
 ```json
-{"id":"case_001","input":"{\"query\":\"hello\"}","output":{"response":"{\"answer\":\"hi\"}","status":"success","elapsed":0.123},"error_msg":null,"caller_name":"caller_0","round":0}
+{"id":"case_001","input":"{\"query\":\"hello\"}","output":"{\"answer\":\"hi\"}","status":"success","elapsed":0.123,"error_msg":null,"caller_name":"caller_0","round":0}
 ```
+
+`output` is the caller's business response string (or `null` on failure), `status` is the attempt status, and `elapsed` is its duration in seconds. All three are top-level fields. The caller protocol is unchanged.
+
+**Format change:** Older JSONL records with nested `output.response`, `output.status` and `output.elapsed` are not supported. Use a new output file or migrate the old records before reading or resuming. This applies even with `resume=False`.
 
 The main thread flushes every `save_every_n` completions and at round boundaries and exit. The initial round runs all pending IDs; later rounds run only failures from the previous round. Each run gets its own retry budget. Caller concurrency state persists across rounds, not across runs.
 
@@ -117,7 +121,7 @@ from batchcall import load_success_ids, iter_results
 
 success_ids = load_success_ids("experiment.jsonl")
 for record in iter_results("experiment.jsonl"):
-    if record["output"]["status"] == "success":
+    if record["status"] == "success":
         pass  # process a single successful record
 ```
 

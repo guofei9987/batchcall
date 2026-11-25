@@ -54,7 +54,15 @@ Caller 可选字段：`name`（自动生成）、`concurrency=10`、`adaptive=Fa
 | RetryConfig | max_retries=3（主体任务之外的重试轮次） |
 | LogConfig | log_every_n=100, console=True, log_path=None |
 
-每次调用（成功或失败）均追加一条 JSONL 记录，包含 `id`, `input`, `output`（内含 `response`, `status`, `elapsed` 秒）, `error_msg`, `caller_name`, `round`。每 N 次完成调用批量写入并 flush；每轮结束及退出时尽可能保存剩余结果。
+每次调用（成功或失败）均追加一条 JSONL 记录，包含 `id`、`input`、`output`（业务结果字符串，失败时可为 null）、`status`（调用状态）、`elapsed`（耗时，秒）、`error_msg`、`caller_name`、`round`，均为顶层字段。每 N 次完成调用批量写入并 flush；每轮结束及退出时尽可能保存剩余结果。
+
+示例：
+
+```json
+{"id":"id_001","input":"{\"query\":\"hello\"}","output":"{\"answer\":\"hi\"}","status":"success","elapsed":0.123,"error_msg":null,"caller_name":"caller_0","round":0}
+```
+
+**格式变更：** 不再支持旧版嵌套的 `output.response`、`output.status`、`output.elapsed` 结构。读取或断点续跑前，请使用新文件或先迁移旧记录；即使 `resume=False` 也不允许混写。Caller 接口保持不变。
 
 启动时流式扫描历史文件，只保留至少成功一次的 ID。完整但未换行的尾部记录自动补换行；非法且未换行的末行截断；其他损坏记录报错。主体全部执行后，上一轮失败 ID 进入下一轮。重试次数仅在单次运行内有效。`resume=False` 仍追加历史记录。
 
@@ -62,7 +70,8 @@ Caller 可选字段：`name`（自动生成）、`concurrency=10`、`adaptive=Fa
 from batchcall import load_success_ids, iter_results
 ids = load_success_ids("experiment.jsonl")
 for record in iter_results("experiment.jsonl"):
-    pass
+    if record['status'] == 'success':
+        pass  # 处理成功记录
 ```
 
 `iter_results` 逐条返回所有尝试，不自动去重。`run` 返回运行摘要，不在内存累计业务结果。默认日志包含全局及 Caller RPM、并发、在途请求、进度、成功失败数和持久化数。

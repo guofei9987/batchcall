@@ -13,8 +13,11 @@ def _record(raw, line_no):
 
 def _validate(obj, line_no):
     if (not isinstance(obj, dict) or not isinstance(obj.get('id'), str)
-            or not isinstance(obj.get('output'), dict)
-            or not isinstance(obj['output'].get('status'), str)):
+            or 'output' not in obj
+            or (obj['output'] is not None and not isinstance(obj['output'], str))
+            or not isinstance(obj.get('status'), str)
+            or not obj['status']
+            or (obj['status'] == 'success' and obj['output'] is None)):
         raise ValueError(f'Invalid batchcall record at line {line_no}')
     return obj
 
@@ -29,7 +32,7 @@ def iter_results(path):
 def load_success_ids(path):
     """Return IDs with at least one successful record; missing file means empty."""
     try:
-        return {r['id'] for r in iter_results(path) if r['output']['status'] == 'success'}
+        return {r['id'] for r in iter_results(path) if r['status'] == 'success'}
     except FileNotFoundError:
         return set()
 
@@ -58,7 +61,7 @@ def prepare(path, resume, logger):
                     break
                 raise ValueError(f'Invalid JSONL at line {line_no}') from exc
             obj = _validate(obj, line_no)
-            if resume and obj['output']['status'] == 'success':
+            if resume and obj['status'] == 'success':
                 ids.add(obj['id'])
             if not raw.endswith(b'\n'):
                 f.write(b'\n')

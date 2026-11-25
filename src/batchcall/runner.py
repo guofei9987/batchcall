@@ -108,7 +108,7 @@ def _invoke(state, task_id, payload, round_no):
         error = f'{type(exc).__name__}: {exc}'
         elapsed = time.monotonic() - start
     return {'id': task_id, 'input': payload,
-            'output': {'response': output, 'status': status, 'elapsed': round(elapsed, 3)},
+            'output': output, 'status': status, 'elapsed': round(elapsed, 3),
             'error_msg': error, 'caller_name': state.name, 'round': round_no}
 
 
@@ -198,11 +198,11 @@ def _run_round(pool, data, ids, states, writer, stats, round_no, log_every, logg
             state = futures.pop(future)
             state.active -= 1
             record = future.result()
-            status = record['output']['status']
+            status = record['status']
             writer.append(record)
             stats.attempts += 1
             done_count += 1
-            stats.duration_sum += record['output']['elapsed']
+            stats.duration_sum += record['elapsed']
             stats.limited += status == 'rate_limited'
             if status == 'success':
                 stats.success += 1
