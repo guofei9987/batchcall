@@ -8,7 +8,13 @@ Designed for LLM APIs, agents, workflows and other I/O-bound calls. Bring your o
 
 ## Installation
 
-From a local checkout (the initial version has not been published to PyPI):
+From PyPI (once the first release is published):
+
+```bash
+python -m pip install batchcall
+```
+
+Or from a local checkout:
 
 ```bash
 python -m pip install .
